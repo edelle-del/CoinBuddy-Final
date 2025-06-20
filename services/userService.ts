@@ -1,5 +1,5 @@
 import { firestore } from "@/config/firebase";
-import { ResponseType, UserDataType } from "@/types";
+import { NotificationPreferences, ResponseType, UserDataType } from "@/types";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { uploadFileToCloudinary } from "./imageService";
 
@@ -53,6 +53,65 @@ export const updateUser = async (
     return {
       success: false,
       msg: error.message,
+    };
+  }
+};
+
+export const updateNotificationPreferences = async (
+  uid: string,
+  preferences: NotificationPreferences
+): Promise<ResponseType> => {
+  try {
+    const userRef = doc(firestore, "users", uid);
+    
+    // Update only the notification preferences
+    await updateDoc(userRef, {
+      notificationPreferences: preferences
+    });
+
+    return {
+      success: true,
+      msg: "Notification preferences updated successfully",
+    };
+  } catch (error: any) {
+    console.error("Error updating notification preferences:", error);
+    return {
+      success: false,
+      msg: error.message || "Failed to update notification preferences",
+    };
+  }
+};
+
+export const getNotificationPreferences = async (
+  uid: string
+): Promise<ResponseType> => {
+  try {
+    const userRef = doc(firestore, "users", uid);
+    const userDoc = await getDoc(userRef);
+
+    if (!userDoc.exists()) {
+      return {
+        success: false,
+        msg: "User not found",
+      };
+    }
+
+    const userData = userDoc.data();
+    const notificationPreferences = userData.notificationPreferences || {
+      emailAlerts: false,
+      appPushNotifications: true,
+    };
+
+    return {
+      success: true,
+      data: notificationPreferences,
+    };
+  }
+  catch (error: any) {
+    console.error("Error getting notification preferences:", error);
+    return {
+      success: false,
+      msg: error.message || "Failed to get notification preferences",
     };
   }
 };

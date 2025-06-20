@@ -1,23 +1,24 @@
-import { Dimensions, Platform, StyleSheet, Text, View } from "react-native";
+import { View, Text, ViewStyle, SafeAreaView, Platform } from "react-native";
 import React from "react";
 import { ScreenWrapperProps } from "@/types";
 import { colors } from "@/constants/theme";
-import { StatusBar } from "expo-status-bar";
+import NetworkStatusIndicator from "./NetworkStatusIndicator";
 
-const { height } = Dimensions.get("window");
-
-const ScreenWrapper = ({ style, children }: ScreenWrapperProps) => {
-  let paddingTop = Platform.OS === "ios" ? height * 0.06 : 50;
+const ScreenWrapper = ({ style, children, bg }: ScreenWrapperProps) => {
   return (
-    <View
+    <SafeAreaView
       style={[
-        { paddingTop, flex: 1, backgroundColor: colors.neutral100 },
+        {
+          flex: 1,
+          backgroundColor: bg || colors.white,
+          paddingTop: Platform.OS == "android" ? 30 : 0,
+        },
         style,
       ]}
     >
-      <StatusBar style="light" />
       {children}
-    </View>
+      <NetworkStatusIndicator />
+    </SafeAreaView>
   );
 };
 

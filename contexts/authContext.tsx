@@ -6,18 +6,20 @@ import {
   User as FirebaseUser,
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { AuthContextType, UserType } from "@/types";
+import { AuthContextType, NotificationPreferences, UserType } from "@/types";
 import { auth, firestore } from "@/config/firebase";
 import { Router, useRouter, useSegments } from "expo-router";
 import { sendEmailVerification } from "firebase/auth";
+import { updateNotificationPreferences as updateUserNotificationPreferences } from "@/services/userService";
 
 
-const AuthContext = createContext<AuthContextType | null>(null);
+const AuthContext = createContext<(AuthContextType & { refreshKey: number }) | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = useState<UserType>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const router: Router = useRouter();
 
   useEffect(() => {
@@ -30,10 +32,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           name: firebaseUser?.displayName,
         });
         updateUserData(firebaseUser.uid);
-        router.replace("/(tabs)");
+        router.replace({ pathname: "/(tabs)" } as any);
       } else {
         setUser(null);
-        router.replace("/(auth)/welcome");
+        router.replace({ pathname: "/(auth)/welcome" } as any);
       }
     });
 
@@ -63,7 +65,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         name,
         email,
         uid: response?.user?.uid,
+        notificationPreferences: {
+          emailAlerts: false,
+          appPushNotifications: true,
+        },
       });
+
+      // Send verification email
+      if (response.user) {
+        await sendEmailVerification(response.user);
+      }
+
       return { success: true };
     } catch (error: any) {
       let msg = error.message;
@@ -89,6 +101,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           email: data.email || null,
           name: data.name || null,
           image: data.image || null,
+          notificationPreferences: data.notificationPreferences || {
+            emailAlerts: false,
+            appPushNotifications: true
+          }
         };
         // console.log("updated user data: ", userData);
         setUser({ ...user, ...userData });
@@ -123,7 +139,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return { success: false, msg: "No authenticated user found." };
     }
   };
+
+  const updateNotificationPreferences = async (preferences: NotificationPreferences) => {
+    if (!user?.uid) {
+      return { success: false, msg: "No authenticated user found." };
+    }
+
+    try {
+      const result = await updateUserNotificationPreferences(user.uid, preferences);
+      
+      if (result.success) {
+        // Update local user state with new preferences
+        setUser({
+          ...user,
+          notificationPreferences: preferences
+        });
+      }
+      
+      return result;
+    } catch (error: any) {
+      return { success: false, msg: error.message || "Failed to update notification preferences" };
+    }
+  };
   
+  const refreshData = () => {
+    setRefreshKey(prevKey => prevKey + 1);
+  };
+
   const contextValue: AuthContextType = {
     user,
     setUser,
@@ -132,18 +174,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     updateUserData,
     resendVerificationEmail,
     checkEmailVerification,
+    updateNotificationPreferences,
+    refreshData,
   };
 
   return (
-    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ ...contextValue, refreshKey }}>{children}</AuthContext.Provider>
   );
 };
 
-export const useAuth = (): AuthContextType => {
+export const useAuth = (): AuthContextType & { refreshKey: number } => {
   const context = useContext(AuthContext);
 
   if (!context) {
     throw new Error("useAuth must be wrapped inside AuthProvider");
   }
-  return context;
+  return context as AuthContextType & { refreshKey: number };
 };

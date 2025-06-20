@@ -79,6 +79,7 @@ export type TransactionType = {
   image?: any;
   uid?: string;
   walletId: string;
+  updatedAt?: Timestamp;
 };
 
 export type CategoryType = {
@@ -132,17 +133,24 @@ export type ImageUploadProps = {
   placeholder?: string;
 };
 
+export type NotificationPreferences = {
+  emailAlerts: boolean;
+  appPushNotifications: boolean;
+};
+
 export type UserType = {
   uid?: string;
   email?: string | null;
   name: string | null;
   image?: any;
   emailVerified?: boolean;
+  notificationPreferences?: NotificationPreferences;
 } | null;
 
 export type UserDataType = {
   name: string;
   image?: any;
+  notificationPreferences?: NotificationPreferences;
 };
 
 export type AuthContextType = {
@@ -164,6 +172,10 @@ export type AuthContextType = {
     verified?: boolean;
     msg?: string;
   }>;
+  updateNotificationPreferences: (
+    preferences: NotificationPreferences
+  ) => Promise<{ success: boolean; msg?: string }>;
+  refreshData: () => void;
 };
 
 export type ResponseType = {

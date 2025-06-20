@@ -16,6 +16,33 @@ import { useRouter } from "expo-router";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { FlashList } from "@shopify/flash-list";
 
+// Helper function to safely handle different date formats from Firestore or backups
+const getSafeDate = (date: Date | Timestamp | string | undefined): Date => {
+  if (!date) return new Date(); // Fallback for undefined or null date
+
+  // Check if it's a Firestore Timestamp (which has a toDate method)
+  if (typeof (date as Timestamp).toDate === 'function') {
+    return (date as Timestamp).toDate();
+  }
+
+  // Check if it's a string and try to parse it
+  if (typeof date === 'string') {
+    const parsedDate = new Date(date);
+    // Return the parsed date if it's valid, otherwise fallback
+    if (!isNaN(parsedDate.getTime())) {
+      return parsedDate;
+    }
+  }
+
+  // Check if it's already a JavaScript Date object
+  if (date instanceof Date) {
+    return date;
+  }
+
+  // Final fallback for any other unexpected type
+  return new Date();
+};
+
 const TransactionList = ({
   data,
   title,
@@ -36,7 +63,7 @@ const TransactionList = ({
         type: item.type,
         amount: item.amount.toString(), // Convert number to string
         category: item.category,
-        date: (item.date as Timestamp)?.toDate()?.toISOString(), // Convert Date to string
+        date: getSafeDate(item.date).toISOString(), // Use helper to safely get and format date
         description: item.description,
         image: item?.image,
         uid: item.uid,
@@ -105,7 +132,8 @@ const TransactionItem = ({
     item?.type == "income" ? incomeCategory : expenseCategories[item.category!];
   const IconComponent = category.icon;
 
-  let date = (item?.date as Timestamp)?.toDate()?.toLocaleDateString("en-GB", {
+  // Use the getSafeDate helper to handle different date formats
+  const date = getSafeDate(item?.date).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
   });

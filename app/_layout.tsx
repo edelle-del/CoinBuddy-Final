@@ -1,5 +1,6 @@
 import { auth } from "@/config/firebase";
 import { AuthProvider, useAuth } from "@/contexts/authContext";
+import { NetworkProvider } from "@/contexts/networkContext";
 import { useFonts } from "expo-font";
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -75,8 +76,10 @@ function StackLayout() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <StackLayout />
-    </AuthProvider>
+    <NetworkProvider>
+      <AuthProvider>
+        <StackLayout />
+      </AuthProvider>
+    </NetworkProvider>
   );
 }

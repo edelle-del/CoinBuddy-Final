@@ -11,7 +11,8 @@ import { firestore } from "@/config/firebase";
 
 const useFetchData = <T>(
   collectionName: string,
-  constraints: QueryConstraint[] = []
+  constraints: QueryConstraint[] = [],
+  dependencies: any[] = []
 ) => {
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,8 +42,7 @@ const useFetchData = <T>(
     );
 
     return () => unsubscribe();
-  }, []);
-  //   }, [collectionName, constraints]);
+  }, dependencies);
 
   return { data, loading, error };
 };

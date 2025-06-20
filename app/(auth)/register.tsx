@@ -52,6 +52,11 @@ const SignUp = () => {
     setLoading(false);
     if (!res.success) {
       Alert.alert("Register", res.msg);
+    } else {
+      router.push({
+        pathname: "/(auth)/verify",
+        params: { email: emailRef.current },
+      } as any);
     }
   };
 

@@ -12,6 +12,7 @@ import {
   Timestamp,
   updateDoc,
   where,
+  serverTimestamp,
 } from "firebase/firestore";
 import { firestore } from "@/config/firebase";
 import { createOrUpdateWallet } from "./walletService";
@@ -85,7 +86,13 @@ export const createOrUpdateTransaction = async (
     const transactionRef = id
       ? doc(firestore, "transactions", id)
       : doc(collection(firestore, "transactions"));
-    await setDoc(transactionRef, transactionData, { merge: true });
+    
+    const dataToSave = {
+      ...transactionData,
+      updatedAt: serverTimestamp(),
+    };
+    
+    await setDoc(transactionRef, dataToSave, { merge: true });
 
     return {
       success: true,
@@ -380,7 +387,7 @@ export const fetchWeeklyStats = async (uid: string): Promise<ResponseType> => {
       }
     });
 
-    // flatMap takes each day’s data and creates two entries
+    // flatMap takes each day's data and creates two entries
     // — one for income and one for expense
     // — then flattens these entries into a single array
     const stats = weeklyData.flatMap((day) => [

@@ -40,7 +40,7 @@ interface Achievement {
 }
 
 const Home = () => {
-  const { user } = useAuth();
+  const { user, refreshKey } = useAuth();
   const router = useRouter();
   const [savedMoney, setSavedMoney] = useState(240); // Example: money saved
   const [weeklyGoal, setWeeklyGoal] = useState(500); // Weekly spending goal
@@ -119,7 +119,7 @@ const Home = () => {
     data: recentTransactions,
     loading: transactionsLoading,
     error,
-  } = useFetchData<TransactionType>("transactions", constraints);
+  } = useFetchData<TransactionType>("transactions", constraints, [user?.uid, refreshKey]);
 
   // Calculate saved money based on transactions (example calculation)
   useEffect(() => {

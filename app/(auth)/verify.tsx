@@ -82,7 +82,7 @@ const VerifyEmailScreen = () => {
           </Typo>
           <Typo size={16} style={styles.subtitle}>
             We've sent a verification link to{" "}
-            <Typo fontWeight="bold">{email}</Typo>. Please check your inbox and
+            <Typo color="black" fontWeight="bold">{email}</Typo>. Please check your inbox and
             follow the link to activate your account.
           </Typo>
         </View>

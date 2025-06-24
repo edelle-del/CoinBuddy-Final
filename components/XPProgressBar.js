@@ -10,17 +10,15 @@ const XPProgressBar = ({
   weeklyGoal = 100, 
   weeklyExpenses = 0,
   dailyExpenses = 0,
-  initialLevel = 0, // Set initial level to 0 for new accounts
+  userXP = 0, // XP from external sources (achievements, etc.)
+  initialLevel = 0,
   onPress,
   showDetails = false,
-  userXP = 0,
-  // Function to calculate XP required for next level
-  // Default formula: baseXP * level^1.5
-  getRequiredXP = (level, baseXP = 50) => Math.floor(baseXP * Math.pow(level, 1.5))
+  getRequiredXP = (level, baseXP = 50) => Math.floor(baseXP * Math.pow(Math.max(level, 1), 1.5))
 }) => {
   const [level, setLevel] = useState(initialLevel);
   const [currentXP, setCurrentXP] = useState(0);
-  const [requiredXP, setRequiredXP] = useState(getRequiredXP(initialLevel || 1)); // Ensure we don't calculate for level 0
+  const [requiredXP, setRequiredXP] = useState(getRequiredXP(Math.max(initialLevel, 1)));
   const [progress, setProgress] = useState(0);
   const [animation] = useState(new Animated.Value(0));
   const [weeklyProgress, setWeeklyProgress] = useState(0);
@@ -31,59 +29,91 @@ const XPProgressBar = ({
 
   // Calculate daily goal based on weekly goal
   useEffect(() => {
-    // Divide weekly goal by 7 to get daily goal
     const calculatedDailyGoal = Math.round(weeklyGoal / 7);
     setDailyGoal(calculatedDailyGoal);
   }, [weeklyGoal]);
 
-  // Calculate XP based on multiple factors, not just saved money
+  // Main XP calculation and level determination
   useEffect(() => {
-    // Calculate weekly progress - how well the user is doing against their weekly goal
-    const weekProgress = Math.min(1, Math.max(0, (weeklyGoal - weeklyExpenses) / weeklyGoal));
-    setWeeklyProgress(weekProgress);
+    // Check if this is truly a new account with no activity
+    const hasAnyActivity = savedMoney > 0 || weeklyExpenses > 0 || dailyExpenses > 0 || userXP > 0;
+    
+    if (!hasAnyActivity) {
+      // Completely new account - start at level 0 with 0 XP
+      setLevel(0);
+      setCurrentXP(0);
+      setRequiredXP(getRequiredXP(1));
+      setProgress(0);
+      setWeeklyProgress(0);
+      setDailyProgress(0);
+      setTotalXP(0);
+      
+      Animated.timing(animation, {
+        toValue: 0,
+        duration: 1000,
+        useNativeDriver: false
+      }).start();
+      
+      return;
+    }
 
-    // Calculate daily progress
-    const dayProgress = Math.min(1, Math.max(0, (dailyGoal - dailyExpenses) / dailyGoal));
+    // Calculate progress percentages
+    const weekProgress = weeklyGoal > 0 ? Math.min(1, Math.max(0, (weeklyGoal - weeklyExpenses) / weeklyGoal)) : 0;
+    const dayProgress = dailyGoal > 0 ? Math.min(1, Math.max(0, (dailyGoal - dailyExpenses) / dailyGoal)) : 0;
+    
+    setWeeklyProgress(weekProgress);
     setDailyProgress(dayProgress);
 
-    // XP calculation factors:
-    // 1. Base XP from saved money (but scaled down to be more reasonable)
-    const savingXP = Math.floor(savedMoney * 0.2); // Reduced multiplier from 1 to 0.2
+    // XP calculation from activities
+    const savingXP = Math.floor(savedMoney * 0.2);
+    const weeklyBonus = (weeklyExpenses > 0 && weekProgress >= 0.8) ? 50 : 
+                      (weeklyExpenses > 0 && weekProgress >= 0.5) ? 20 : 0;
+    const dailyBonus = (dailyExpenses > 0 && dayProgress >= 0.9) ? 15 : 
+                      (dailyExpenses > 0 && dayProgress >= 0.7) ? 8 : 0;
     
-    // 2. Bonus XP for meeting spending goals
-    const weeklyBonus = weekProgress >= 0.8 ? 50 : weekProgress >= 0.5 ? 20 : 0;
+    // Combine activity XP with external XP (from achievements)
+    const activityXP = savingXP + weeklyBonus + dailyBonus;
+    const calculatedTotalXP = activityXP + userXP;
     
-    // 3. Bonus XP for meeting daily goals
-    const dailyBonus = dayProgress >= 0.9 ? 15 : dayProgress >= 0.7 ? 8 : 0;
-    
-    // 4. Calculate total XP (could be from a cumulative database value in a real app)
-    const calculatedTotalXP = savingXP + weeklyBonus + dailyBonus + userXP;
     setTotalXP(calculatedTotalXP);
     
-    // Find the correct level based on total XP
-    let currentLevel = 1; // Start at level 1 (not 0)
+    // Handle accounts with minimal XP (should still be level 0 or 1)
+    if (calculatedTotalXP === 0) {
+      setLevel(0);
+      setCurrentXP(0);
+      setRequiredXP(getRequiredXP(1));
+      setProgress(0);
+      
+      Animated.timing(animation, {
+        toValue: 0,
+        duration: 1000,
+        useNativeDriver: false
+      }).start();
+      
+      return;
+    }
+
+    // Calculate level and XP for current level
+    let currentLevel = 1;
     let accumulatedXP = 0;
     let xpForNextLevel = getRequiredXP(currentLevel);
     
-    // Keep leveling up until we can't anymore
+    // Find the correct level
     while (calculatedTotalXP >= accumulatedXP + xpForNextLevel) {
       accumulatedXP += xpForNextLevel;
       currentLevel++;
       xpForNextLevel = getRequiredXP(currentLevel);
     }
     
-    // Calculate XP for current level
     const xpInCurrentLevel = calculatedTotalXP - accumulatedXP;
-    const progressValue = xpInCurrentLevel / xpForNextLevel;
+    const progressValue = xpForNextLevel > 0 ? xpInCurrentLevel / xpForNextLevel : 0;
     
-    // Check if user reached a milestone and unlock achievement
-    if (currentLevel > level && currentLevel > 1) {
+    // Check for level up
+    if (currentLevel > level && level > 0) {
       setAchievementUnlocked(true);
-      // Reset achievement notification after 5 seconds
       setTimeout(() => setAchievementUnlocked(false), 5000);
     }
     
-    // Update state
     setLevel(currentLevel);
     setCurrentXP(xpInCurrentLevel);
     setRequiredXP(xpForNextLevel);
@@ -95,13 +125,30 @@ const XPProgressBar = ({
       duration: 1000,
       useNativeDriver: false
     }).start();
-  }, [savedMoney, weeklyGoal, weeklyExpenses, dailyGoal, dailyExpenses, initialLevel, getRequiredXP]);
+  }, [savedMoney, weeklyGoal, weeklyExpenses, dailyGoal, dailyExpenses, userXP, level, getRequiredXP]);
 
   const width = animation.interpolate({
     inputRange: [0, 1],
     outputRange: ['0%', '100%'],
     extrapolate: 'clamp'
   });
+
+  const getProgressColor = (progress) => {
+    if (progress >= 0.8) return colors.green;
+    if (progress >= 0.5) return "#FFC107"; // Amber
+    return "#2196F3"; // Blue
+  };
+
+  const getProgressMessage = (progress, type) => {
+    const xpBonus = type === 'daily' 
+      ? (progress >= 0.9 ? 15 : progress >= 0.7 ? 8 : 0)
+      : (progress >= 0.8 ? 50 : progress >= 0.5 ? 20 : 0);
+    
+    if (xpBonus > 0) {
+      return `Great! (+${xpBonus} XP)`;
+    }
+    return 'Keep Going!';
+  };
 
   return (
     <TouchableOpacity 
@@ -136,7 +183,7 @@ const XPProgressBar = ({
       <View style={styles.progressContainer}>
         <View style={styles.progressHeader}>
           <Typo size={14} fontWeight="500" color={colors.neutral900}>
-            LVL {level}
+            {level === 0 ? "Start Your Journey" : `LVL ${level}`}
           </Typo>
           <Typo size={14} fontWeight="500" color={colors.neutral900}>
             {currentXP}/{requiredXP} XP
@@ -156,7 +203,7 @@ const XPProgressBar = ({
           <>
             <View style={styles.progressFooter}>
               <Typo size={12} color={colors.neutral700}>
-                Next level in {requiredXP - currentXP} XP
+                {level === 0 ? "Earn XP to reach Level 1" : `Next level in ${requiredXP - currentXP} XP`}
               </Typo>
               <Typo size={12} color={colors.neutral700} fontWeight="500">
                 {Math.round(progress * 100)}%
@@ -164,64 +211,82 @@ const XPProgressBar = ({
             </View>
             
             {/* Daily Goal Section */}
-            <View style={styles.goalContainer}>
-              <View style={styles.goalHeader}>
-                <Typo size={12} fontWeight="500" color={colors.neutral700}>
-                  Daily Saving Goal
-                </Typo>
-                <Typo size={12} color={colors.neutral600}>
-                  {Math.round(dailyProgress * 100)}% Complete
-                </Typo>
+            {dailyGoal > 0 && (
+              <View style={styles.goalContainer}>
+                <View style={styles.goalHeader}>
+                  <Typo size={12} fontWeight="500" color={colors.neutral700}>
+                    Daily Saving Goal
+                  </Typo>
+                  <Typo size={12} color={colors.neutral600}>
+                    {Math.round(dailyProgress * 100)}% Complete
+                  </Typo>
+                </View>
+                
+                <View style={styles.progressBarContainer}>
+                  <View 
+                    style={[
+                      styles.dailyProgressBar, 
+                      { 
+                        width: `${dailyProgress * 100}%`,
+                        backgroundColor: getProgressColor(dailyProgress)
+                      }
+                    ]} 
+                  />
+                </View>
+                
+                <View style={styles.progressFooter}>
+                  <Typo size={12} color={colors.neutral700}>
+                    ₱{dailyExpenses} spent of ₱{dailyGoal} goal
+                  </Typo>
+                  <Typo 
+                    size={12} 
+                    color={dailyProgress >= 0.7 ? getProgressColor(dailyProgress) : colors.neutral700} 
+                    fontWeight="500"
+                  >
+                    {getProgressMessage(dailyProgress, 'daily')}
+                  </Typo>
+                </View>
               </View>
-              
-              <View style={styles.progressBarContainer}>
-                <View 
-                  style={[
-                    styles.dailyProgressBar, 
-                    { width: `${dailyProgress * 100}%` }
-                  ]} 
-                />
-              </View>
-              
-              <View style={styles.progressFooter}>
-                <Typo size={12} color={colors.neutral700}>
-                  ₱{dailyExpenses} spent of ₱{dailyGoal} goal
-                </Typo>
-                <Typo size={12} color={dailyProgress >= 0.9 ? colors.blue : colors.neutral700} fontWeight="500">
-                  {dailyProgress >= 0.9 ? 'Great! (+15 XP)' : dailyProgress >= 0.7 ? 'Good Progress! (+8 XP)' : 'Keep Going!'}
-                </Typo>
-              </View>
-            </View>
+            )}
             
             {/* Weekly Goal Section */}
-            <View style={styles.goalContainer}>
-              <View style={styles.goalHeader}>
-                <Typo size={12} fontWeight="500" color={colors.neutral700}>
-                  Weekly Saving Goal
-                </Typo>
-                <Typo size={12} color={colors.neutral600}>
-                  {Math.round(weeklyProgress * 100)}% Complete
-                </Typo>
+            {weeklyGoal > 0 && (
+              <View style={styles.goalContainer}>
+                <View style={styles.goalHeader}>
+                  <Typo size={12} fontWeight="500" color={colors.neutral700}>
+                    Weekly Saving Goal
+                  </Typo>
+                  <Typo size={12} color={colors.neutral600}>
+                    {Math.round(weeklyProgress * 100)}% Complete
+                  </Typo>
+                </View>
+                
+                <View style={styles.progressBarContainer}>
+                  <View 
+                    style={[
+                      styles.weeklyProgressBar, 
+                      { 
+                        width: `${weeklyProgress * 100}%`,
+                        backgroundColor: getProgressColor(weeklyProgress)
+                      }
+                    ]} 
+                  />
+                </View>
+                
+                <View style={styles.progressFooter}>
+                  <Typo size={12} color={colors.neutral700}>
+                    ₱{weeklyExpenses} spent of ₱{weeklyGoal} goal
+                  </Typo>
+                  <Typo 
+                    size={12} 
+                    color={weeklyProgress >= 0.5 ? getProgressColor(weeklyProgress) : colors.neutral700} 
+                    fontWeight="500"
+                  >
+                    {getProgressMessage(weeklyProgress, 'weekly')}
+                  </Typo>
+                </View>
               </View>
-              
-              <View style={styles.progressBarContainer}>
-                <View 
-                  style={[
-                    styles.weeklyProgressBar, 
-                    { width: `${weeklyProgress * 100}%` }
-                  ]} 
-                />
-              </View>
-              
-              <View style={styles.progressFooter}>
-                <Typo size={12} color={colors.neutral700}>
-                  ₱{weeklyExpenses} spent of ₱{weeklyGoal} goal
-                </Typo>
-                <Typo size={12} color={weeklyProgress >= 0.8 ? colors.green : colors.neutral700} fontWeight="500">
-                  {weeklyProgress >= 0.8 ? 'On Track! (+50 XP)' : weeklyProgress >= 0.5 ? 'Keep Going! (+20 XP)' : 'Keep Going!'}
-                </Typo>
-              </View>
-            </View>
+            )}
             
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
@@ -236,6 +301,14 @@ const XPProgressBar = ({
                   {totalXP} Total XP
                 </Typo>
               </View>
+              {userXP > 0 && (
+                <View style={styles.statItem}>
+                  <Icons.Trophy size={verticalScale(16)} color="#FFC107" weight="fill" />
+                  <Typo size={12} color={colors.neutral700}>
+                    {userXP} Achievement XP
+                  </Typo>
+                </View>
+              )}
             </View>
           </>
         )}
@@ -269,7 +342,7 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   levelBadge: {
-    backgroundColor: "#00723F", // Green color
+    backgroundColor: "#00723F",
     width: verticalScale(35),
     height: verticalScale(35),
     borderRadius: 50,
@@ -296,17 +369,15 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: "100%",
-    backgroundColor: "#00723F", // Green color
+    backgroundColor: "#00723F",
     borderRadius: 4,
   },
   weeklyProgressBar: {
     height: "100%",
-    backgroundColor: "#FFC107", // Amber color
     borderRadius: 4,
   },
   dailyProgressBar: {
     height: "100%",
-    backgroundColor: "#2196F3", // Blue color
     borderRadius: 4,
   },
   progressFooter: {
@@ -328,6 +399,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: spacingY._10,
+    flexWrap: "wrap",
+    gap: spacingX._10,
   },
   statItem: {
     flexDirection: "row",
@@ -345,7 +418,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -10,
     right: 10,
-    backgroundColor: "#FFC107", // Amber color 
+    backgroundColor: "#FFC107",
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,

@@ -19,6 +19,10 @@ import { colors, spacingX, spacingY } from "@/constants/theme";
 import Typo from "@/components/Typo";
 import * as Icons from "phosphor-react-native";
 import { useAuth } from "@/contexts/authContext";
+import { collection, doc, setDoc, Timestamp } from "firebase/firestore";
+import { firestore } from "@/firebase";
+import { v4 as uuidv4 } from "uuid";
+import QRCode from "qrcode.react";
 
 const Login = () => {
   const router = useRouter();
@@ -44,6 +48,19 @@ const Login = () => {
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
+
+  async function generateQRToken() {
+    const token = uuidv4(); // unique token
+    const ref = doc(collection(firestore, "qrTokens"), token);
+
+    await setDoc(ref, {
+      uid: null,
+      createdAt: Timestamp.now(),
+      scannedAt: null,
+    });
+
+    return token;
+  }
 
   return (
     <ScreenWrapper>
@@ -122,6 +139,24 @@ const Login = () => {
             </Typo>
           </Button>
         </View>
+        
+        {/* QR Login Button */}
+        <View style={{ marginVertical: 16, alignItems: "center" }}>
+          <Pressable
+            onPress={() => router.push("/(auth)/qrscanner" as any)}
+            style={{
+              paddingVertical: 12,
+              paddingHorizontal: 24,
+              backgroundColor: colors.white, // or any other theme color
+              borderRadius: 8,
+            }}
+          >
+            <Typo fontWeight={"700"} size={16} color={colors.primary}>
+              Login using QR Code
+            </Typo>
+          </Pressable>
+        </View>
+
 
         {/* footer */}
         <View style={styles.footer}>

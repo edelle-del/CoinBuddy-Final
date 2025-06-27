@@ -27,6 +27,8 @@ import * as FileSystem from 'expo-file-system';
 import { printToFileAsync } from 'expo-print';
 import { shareAsync } from 'expo-sharing';
 const CoinBuddyLogo = require("@/assets/images/CoinBuddyLogo.png");
+import { Timestamp } from "firebase/firestore"; // Make sure this is imported
+
 
 // Updated Achievement interface
 interface Achievement {
@@ -224,90 +226,121 @@ const Home = () => {
   };
 
   const generateTransactionsPDF = async () => {
-    try {
-      // Create HTML content for the PDF based on recent transactions
-      let htmlContent = `
-        <html>
-          <head>
-            <style>
-              body { font-family: Arial, sans-serif; padding: 20px; }
-              h1 { color: #22c55e; }
-              table { width: 100%; border-collapse: collapse; }
-              th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-              th { background-color: #f2f2f2; }
-            </style>
-          </head>
-          <body>
-            <h1>CoinBuddy Transactions</h1>
-            <p>Generated on ${new Date().toLocaleDateString()}</p>
-            <table>
-              <tr>
-                <th>Date</th>
-                <th>Description</th>
-                <th>Category</th>
-                <th>Type</th>
-                <th>Amount</th>
-              </tr>
-      `;
-      
-      // Add transaction rows
-      if (recentTransactions && recentTransactions.length > 0) {
-        recentTransactions.forEach(transaction => {
-          const date = typeof transaction.date === 'string' 
-            ? new Date(transaction.date).toLocaleDateString() 
-            : transaction.date instanceof Date 
-              ? transaction.date.toLocaleDateString()
-              : 'Unknown date';
-          
-          htmlContent += `
+  try {
+    const currentDate = new Date();
+    const formattedDate = currentDate.toLocaleDateString();
+    const formattedTime = currentDate.toLocaleTimeString();
+
+    let htmlContent = `
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 40px; }
+            h1 { color: #22c55e; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+            th { background-color: #f2f2f2; }
+            .timestamp { margin-top: 10px; font-size: 12px; color: #666; }
+            @page {
+              size: auto;
+              margin: 20mm;
+            }
+            @media print {
+              @page {
+                margin: 20mm;
+                counter-increment: page;
+              }
+              body {
+                counter-reset: page;
+              }
+              .footer {
+                position: fixed;
+                bottom: 0;
+                width: 100%;
+                text-align: center;
+                font-size: 12px;
+                color: #999;
+              }
+              .footer:after {
+                content: "Page " counter(page); 
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>CoinBuddy Transactions</h1>
+          <p class="timestamp">Generated on ${formattedDate} at ${formattedTime}</p>
+
+          <table>
             <tr>
-              <td>${date}</td>
-              <td>${transaction.description || 'No description'}</td>
-              <td>${transaction.category || 'Uncategorized'}</td>
-              <td>${transaction.type}</td>
-              <td>₱${transaction.amount.toFixed(2)}</td>
+              <th>Date</th>
+              <th>Description</th>
+              <th>Category</th>
+              <th>Type</th>
+              <th>Amount</th>
             </tr>
-          `;
-        });
-      } else {
-        htmlContent += `
-          <tr>
-            <td colspan="5" style="text-align: center;">No transactions to display</td>
-          </tr>
-        `;
-      }
-      
-      // Close HTML tags
+    `;
+
+    // Add transaction rows
+    if (recentTransactions && recentTransactions.length > 0) {
+      recentTransactions.forEach(transaction => {
+        let date = 'Unknown date';
+          // **Crucial change here: Handle Firestore Timestamp objects**
+          if (transaction.date instanceof Timestamp) {
+            date = transaction.date.toDate().toLocaleDateString();
+          } else if (transaction.date instanceof Date) {
+            date = transaction.date.toLocaleDateString();
+          } else if (typeof transaction.date === 'string' || typeof transaction.date === 'number') {
+            date = new Date(transaction.date).toLocaleDateString();
+          }
+
       htmlContent += `
-            </table>
-          </body>
-        </html>
+        <tr>
+          <td>${date}</td>
+          <td>${transaction.description || "No description"}</td>
+          <td>${transaction.category || "Uncategorized"}</td>
+          <td>${transaction.type}</td>
+          <td>₱${transaction.amount.toFixed(2)}</td>
+        </tr>
       `;
-      
-      // Generate the PDF file
-      const { uri } = await printToFileAsync({
-        html: htmlContent,
-        base64: false
-      });
-      
-      // Get current date for filename
-      const fileName = `CoinBuddy_Transactions_${new Date().toISOString().split('T')[0]}.pdf`;
-      
-      // Save to a more permanent location
-      const pdfUri = FileSystem.documentDirectory + fileName;
-      await FileSystem.moveAsync({
-        from: uri,
-        to: pdfUri
-      });
-      
-      // Share the PDF file
-      await shareAsync(pdfUri, { UTI: '.pdf', mimeType: 'application/pdf' });
-      
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      // You could add a toast notification here to inform the user of the error
+    });
+
+    } else {
+      htmlContent += `
+        <tr>
+          <td colspan="5" style="text-align: center;">No transactions to display</td>
+        </tr>
+      `;
     }
-  };
+
+    htmlContent += `
+          </table>
+          <div class="footer"></div>
+        </body>
+      </html>
+    `;
+
+    // Generate the PDF file
+    const { uri } = await printToFileAsync({
+      html: htmlContent,
+      base64: false
+    });
+
+    const fileName = `CoinBuddy_Transactions_${currentDate.toISOString().split('T')[0]}.pdf`;
+    const pdfUri = FileSystem.documentDirectory + fileName;
+
+    await FileSystem.moveAsync({
+      from: uri,
+      to: pdfUri
+    });
+
+    await shareAsync(pdfUri, { UTI: '.pdf', mimeType: 'application/pdf' });
+
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+  }
+};
+
 
   // Update the achievements progress calculation
   const completedAchievements = achievements.filter(a => a.completed);

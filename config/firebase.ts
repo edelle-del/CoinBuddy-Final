@@ -1,6 +1,6 @@
 import { initializeApp, getApp } from "firebase/app";
 
-import { initializeAuth, getReactNativePersistence } from "firebase/auth";
+import { initializeAuth, getReactNativePersistence,getAuth, } from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getFirestore, collection } from "firebase/firestore";
 
@@ -22,6 +22,13 @@ const app = initializeApp(firebaseConfig, "CoinBuddy");
 export const auth = initializeAuth(app, { 
   persistence: getReactNativePersistence(AsyncStorage),
 });
-// export const auth = initializeAuth(app);
+const firestore = getFirestore(app);
+export { firestore };
 
-export const firestore = getFirestore(app);
+export const firebase = {
+  app,
+  auth,
+  firestore,
+};
+
+

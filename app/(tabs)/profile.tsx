@@ -40,18 +40,8 @@ const Profile = () => {
       bgColor: "#6366f1",
       
     },
-    // {
-    //   title: "Exepnse Categories",
-    //   icon: (
-    //     <Icons.SquaresFour
-    //       size={verticalScale(26)}
-    //       color={colors.white}
-    //       weight="fill"
-    //     />
-    //   ),
-    //   routeName: "/(modals)/categoryModal",
-    //   bgColor: "#10b981",
-    // },
+    
+
     {
       title: "Settings",
       icon: (
@@ -75,6 +65,18 @@ const Profile = () => {
       ),
        routeName: "/(modals)/categoryModal",
       bgColor: colors.neutral600,
+    },
+    {
+      title: "Scan/Generate QR",
+      icon: (
+        <Icons.QrCode
+          size={verticalScale(26)}
+          color={colors.white}
+          weight="fill"
+        />
+      ),
+        routeName: "/(modals)/qrModal",
+      bgColor: "#f59e0b",
     },
     {
       title: "Logout",
@@ -179,6 +181,7 @@ const Profile = () => {
                       item.title === "Edit Profile" ? colors.neutral900 : 
                       item.title === "Settings" ? colors.neutral900 :
                       item.title === "Privacy Policy" ? colors.neutral900 :
+                      item.title === "Scan/Generate QR" ? colors.neutral900 :
                       item.title === "Logout" ? colors.neutral900 :
                       undefined
                     }>

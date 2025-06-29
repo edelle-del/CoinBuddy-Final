@@ -6,7 +6,7 @@ import {
   Image,
   Modal,
 } from "react-native";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import ScreenWrapper from "@/components/ScreenWrapper";
 import Typo from "@/components/Typo";
 import { colors, spacingX, spacingY } from "@/constants/theme";
@@ -27,8 +27,7 @@ import * as FileSystem from 'expo-file-system';
 import { printToFileAsync } from 'expo-print';
 import { shareAsync } from 'expo-sharing';
 const CoinBuddyLogo = require("@/assets/images/CoinBuddyLogo.png");
-import { Timestamp } from "firebase/firestore"; // Make sure this is imported
-
+import { Timestamp } from "firebase/firestore";
 
 // Updated Achievement interface
 interface Achievement {
@@ -44,63 +43,81 @@ interface Achievement {
 const Home = () => {
   const { user, refreshKey } = useAuth();
   const router = useRouter();
-  const [savedMoney, setSavedMoney] = useState(240); // Example: money saved
-  const [weeklyGoal, setWeeklyGoal] = useState(500); // Weekly spending goal
-  const [weeklyExpenses, setWeeklyExpenses] = useState(260); // Weekly expenses
+  const [savedMoney, setSavedMoney] = useState(240);
+  const [weeklyGoal, setWeeklyGoal] = useState(500);
+  const [weeklyExpenses, setWeeklyExpenses] = useState(260);
   const [showXPDetails, setShowXPDetails] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
-  const xpPerPeso = 1; // XP per peso saved
+  const [showCategoryFilter, setShowCategoryFilter] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [selectedType, setSelectedType] = useState<string>("All"); // All, Income, Expense
+  const xpPerPeso = 1;
   const [userXP, setUserXP] = useState(0);
 
+  // Common expense categories - you can customize these based on your app
+  const expenseCategories = [
+    "All",
+    "Food & Dining",
+    "Transportation",
+    "Shopping",
+    "Entertainment",
+    "Bills & Utilities",
+    "Healthcare",
+    "Education",
+    "Travel",
+    "Other"
+  ];
+
+  const transactionTypes = ["All", "Income", "Expense"];
 
   // Mock achievements with new properties
   const [achievements, setAchievements] = useState<Achievement[]>([
-  { 
-    id: 1, 
-    title: "Money Saver", 
-    description: "Save your first ₱100", 
-    completed: true, 
-    claimable: true, 
-    xpPoints: 50,
-    icon: "Wallet" 
-  },
-  { 
-    id: 2, 
-    title: "Budget Master", 
-    description: "Stay under budget for 3 weeks", 
-    completed: true, 
-    claimable: true, 
-    xpPoints: 100,
-    icon: "ChartBar" 
-  },
-  { 
-    id: 3, 
-    title: "Level 5 Reached", 
-    description: "Reach level 5 in your saving journey", 
-    completed: false, 
-    claimable: false, 
-    xpPoints: 150,
-    icon: "Star" 
-  },
-  { 
-    id: 4, 
-    title: "Track Star", 
-    description: "Log transactions for 7 consecutive days", 
-    completed: true, 
-    claimable: true, 
-    xpPoints: 75,
-    icon: "CheckCircle" 
-  },
-  { 
-    id: 5, 
-    title: "Big Saver", 
-    description: "Save ₱1000 in a single month", 
-    completed: false, 
-    claimable: false, 
-    xpPoints: 200,
-    icon: "CurrencyCircleDollar" 
-  },
-]);
+    { 
+      id: 1, 
+      title: "Money Saver", 
+      description: "Save your first ₱100", 
+      completed: true, 
+      claimable: true, 
+      xpPoints: 50,
+      icon: "Wallet" 
+    },
+    { 
+      id: 2, 
+      title: "Budget Master", 
+      description: "Stay under budget for 3 weeks", 
+      completed: true, 
+      claimable: true, 
+      xpPoints: 100,
+      icon: "ChartBar" 
+    },
+    { 
+      id: 3, 
+      title: "Level 5 Reached", 
+      description: "Reach level 5 in your saving journey", 
+      completed: false, 
+      claimable: false, 
+      xpPoints: 150,
+      icon: "Star" 
+    },
+    { 
+      id: 4, 
+      title: "Track Star", 
+      description: "Log transactions for 7 consecutive days", 
+      completed: true, 
+      claimable: true, 
+      xpPoints: 75,
+      icon: "CheckCircle" 
+    },
+    { 
+      id: 5, 
+      title: "Big Saver", 
+      description: "Save ₱1000 in a single month", 
+      completed: false, 
+      claimable: false, 
+      xpPoints: 200,
+      icon: "CurrencyCircleDollar" 
+    },
+  ]);
 
   // Calculate XP based on saved money
   const calculateMoneyXP = () => {
@@ -111,9 +128,9 @@ const Home = () => {
   const totalXP = userXP + calculateMoneyXP();
 
   const constraints = [
-    where("uid", "==", user?.uid), // Filter by user ID
-    orderBy("date", "desc"), // Order by creation date in descending order
-    limit(30), // Limit the results to 30 transactions
+    where("uid", "==", user?.uid),
+    orderBy("date", "desc"),
+    limit(100), // Increased limit to have more data for filtering
   ];
 
   // Use the useFetchData hook with the 'transactions' collection and constraints
@@ -123,24 +140,44 @@ const Home = () => {
     error,
   } = useFetchData<TransactionType>("transactions", constraints, [user?.uid, refreshKey]);
 
-  // Calculate saved money based on transactions (example calculation)
+  // Filter transactions based on selected category and type
+  const filteredTransactions = useMemo(() => {
+    if (!recentTransactions) return [];
+
+    let filtered = recentTransactions;
+
+    // Filter by transaction type (Income/Expense)
+    if (selectedType !== "All") {
+      filtered = filtered.filter(transaction => 
+        transaction.type.toLowerCase() === selectedType.toLowerCase()
+      );
+    }
+
+    // Filter by category
+    if (selectedCategory !== "All") {
+      filtered = filtered.filter(transaction => 
+        (transaction.category || "Uncategorized") === selectedCategory
+      );
+    }
+
+    return filtered.slice(0, 30); // Limit to 30 for display
+  }, [recentTransactions, selectedCategory, selectedType]);
+
+  // Calculate saved money based on transactions
   useEffect(() => {
     if (recentTransactions && recentTransactions.length > 0) {
-      // If t.date is a string (which appears to be the case based on the error)
-        const lastWeekTransactions = recentTransactions.filter(
-          (t) => {
-            // Parse the date string to a Date object if it's a string
-            const transactionDate = typeof t.date === 'string' 
-              ? new Date(t.date) 
-              : t.date instanceof Date 
-                ? t.date 
-                : new Date(); // Fallback in case t.date is neither string nor Date
-                
-            // Compare with 7 days ago
-            return transactionDate.getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000;
-          }
-        );
-      
+      const lastWeekTransactions = recentTransactions.filter(
+        (t) => {
+          const transactionDate = typeof t.date === 'string' 
+            ? new Date(t.date) 
+            : t.date instanceof Date 
+              ? t.date 
+              : new Date();
+              
+          return transactionDate.getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000;
+        }
+      );
+    
       const incomeTransactions = lastWeekTransactions.filter(t => t.type === "income");
       const expenseTransactions = lastWeekTransactions.filter(t => t.type === "expense");
       
@@ -156,7 +193,124 @@ const Home = () => {
     await signOut(auth);
   };
 
-  // Modify the renderAchievementItem to include XP claim
+  // Reset filters
+  const resetFilters = () => {
+    setSelectedCategory("All");
+    setSelectedType("All");
+  };
+
+  // Get unique categories from transactions for dynamic filtering
+  const getUniqueCategories = () => {
+    if (!recentTransactions) return expenseCategories;
+    
+    const categories = recentTransactions
+      .map(t => t.category || "Uncategorized")
+      .filter((category, index, self) => category && self.indexOf(category) === index);
+    
+    return ["All", ...categories];
+  };
+
+  // Filter Modal Component
+  const renderFilterModal = () => (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={showCategoryFilter}
+      onRequestClose={() => setShowCategoryFilter(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.filterModalContent}>
+          <View style={styles.modalHeader}>
+            <Typo size={18} fontWeight="bold" color={colors.neutral900}>
+              Filter Transactions
+            </Typo>
+            <TouchableOpacity onPress={() => setShowCategoryFilter(false)}>
+              <Icons.X size={verticalScale(24)} color={colors.neutral900} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Transaction Type Filter */}
+            <View style={styles.filterSection}>
+              <Typo size={16} fontWeight="600" color={colors.neutral900} style={styles.filterTitle}>
+                Transaction Type
+              </Typo>
+              <View style={styles.filterOptions}>
+                {transactionTypes.map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.filterOption,
+                      selectedType === type && styles.selectedFilterOption
+                    ]}
+                    onPress={() => setSelectedType(type)}
+                  >
+                    <Typo
+                      size={14}
+                      color={selectedType === type ? colors.white : colors.neutral700}
+                      fontWeight={selectedType === type ? "600" : "400"}
+                    >
+                      {type}
+                    </Typo>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Category Filter */}
+            <View style={styles.filterSection}>
+              <Typo size={16} fontWeight="600" color={colors.neutral900} style={styles.filterTitle}>
+                Category
+              </Typo>
+              <View style={styles.filterOptions}>
+                {getUniqueCategories().map((category) => (
+                  <TouchableOpacity
+                    key={category}
+                    style={[
+                      styles.filterOption,
+                      selectedCategory === category && styles.selectedFilterOption
+                    ]}
+                    onPress={() => setSelectedCategory(category)}
+                  >
+                    <Typo
+                      size={14}
+                      color={selectedCategory === category ? colors.white : colors.neutral700}
+                      fontWeight={selectedCategory === category ? "600" : "400"}
+                    >
+                      {category || "Uncategorized"}
+                    </Typo>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Filter Actions */}
+            <View style={styles.filterActions}>
+              <TouchableOpacity
+                style={styles.resetButton}
+                onPress={resetFilters}
+              >
+                <Typo size={14} color={colors.neutral700} fontWeight="500">
+                  Reset Filters
+                </Typo>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.applyButton}
+                onPress={() => setShowCategoryFilter(false)}
+              >
+                <Typo size={14} color={colors.white} fontWeight="600">
+                  Apply Filters
+                </Typo>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  // Render achievement item
   const renderAchievementItem = (achievement: Achievement) => {
     const IconComponent = Icons[achievement.icon] as React.ElementType;
     
@@ -205,10 +359,8 @@ const Home = () => {
   // Function to claim achievement XP
   const claimAchievementXP = (achievement: Achievement) => {
     if (achievement.completed && achievement.claimable) {
-      // Update XP
       setUserXP(prevXP => prevXP + achievement.xpPoints);
       
-      // Mark achievement as claimed using state update
       setAchievements(prevAchievements => 
         prevAchievements.map(a => 
           a.id === achievement.id 
@@ -217,75 +369,56 @@ const Home = () => {
         )
       );
 
-      // Close the modal to show XP increase (optional - provides better feedback)
       setShowAchievements(false);
-      
-      // Optionally show XP details after claiming
       setShowXPDetails(true);
     }
   };
 
   const generateTransactionsPDF = async () => {
-  try {
-    const currentDate = new Date();
-    const formattedDate = currentDate.toLocaleDateString();
-    const formattedTime = currentDate.toLocaleTimeString();
+    try {
+      const currentDate = new Date();
+      const formattedDate = currentDate.toLocaleDateString();
+      const formattedTime = currentDate.toLocaleTimeString();
 
-    let htmlContent = `
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 40px; }
-            h1 { color: #22c55e; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-            th { background-color: #f2f2f2; }
-            .timestamp { margin-top: 10px; font-size: 12px; color: #666; }
-            @page {
-              size: auto;
-              margin: 20mm;
-            }
-            @media print {
+      let htmlContent = `
+        <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 40px; }
+              h1 { color: #22c55e; }
+              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+              th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+              th { background-color: #f2f2f2; }
+              .timestamp { margin-top: 10px; font-size: 12px; color: #666; }
+              .filter-info { margin: 10px 0; font-size: 14px; color: #333; }
               @page {
+                size: auto;
                 margin: 20mm;
-                counter-increment: page;
               }
-              body {
-                counter-reset: page;
-              }
-              .footer {
-                position: fixed;
-                bottom: 0;
-                width: 100%;
-                text-align: center;
-                font-size: 12px;
-                color: #999;
-              }
-              .footer:after {
-                content: "Page " counter(page); 
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <h1>CoinBuddy Transactions</h1>
-          <p class="timestamp">Generated on ${formattedDate} at ${formattedTime}</p>
+            </style>
+          </head>
+          <body>
+            <h1>CoinBuddy Transactions</h1>
+            <p class="timestamp">Generated on ${formattedDate} at ${formattedTime}</p>
+            <div class="filter-info">
+              <strong>Filters Applied:</strong> 
+              Type: ${selectedType} | Category: ${selectedCategory}
+            </div>
 
-          <table>
-            <tr>
-              <th>Date</th>
-              <th>Description</th>
-              <th>Category</th>
-              <th>Type</th>
-              <th>Amount</th>
-            </tr>
-    `;
+            <table>
+              <tr>
+                <th>Date</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Type</th>
+                <th>Amount</th>
+              </tr>
+      `;
 
-    // Add transaction rows
-    if (recentTransactions && recentTransactions.length > 0) {
-      recentTransactions.forEach(transaction => {
-        let date = 'Unknown date';
-          // **Crucial change here: Handle Firestore Timestamp objects**
+      // Add filtered transaction rows
+      if (filteredTransactions && filteredTransactions.length > 0) {
+        filteredTransactions.forEach(transaction => {
+          let date = 'Unknown date';
           if (transaction.date instanceof Timestamp) {
             date = transaction.date.toDate().toLocaleDateString();
           } else if (transaction.date instanceof Date) {
@@ -294,57 +427,56 @@ const Home = () => {
             date = new Date(transaction.date).toLocaleDateString();
           }
 
-      htmlContent += `
-        <tr>
-          <td>${date}</td>
-          <td>${transaction.description || "No description"}</td>
-          <td>${transaction.category || "Uncategorized"}</td>
-          <td>${transaction.type}</td>
-          <td>₱${transaction.amount.toFixed(2)}</td>
-        </tr>
-      `;
-    });
+          htmlContent += `
+            <tr>
+              <td>${date}</td>
+              <td>${transaction.description || "No description"}</td>
+              <td>${transaction.category || "Uncategorized"}</td>
+              <td>${transaction.type}</td>
+              <td>₱${transaction.amount.toFixed(2)}</td>
+            </tr>
+          `;
+        });
+      } else {
+        htmlContent += `
+          <tr>
+            <td colspan="5" style="text-align: center;">No transactions to display</td>
+          </tr>
+        `;
+      }
 
-    } else {
       htmlContent += `
-        <tr>
-          <td colspan="5" style="text-align: center;">No transactions to display</td>
-        </tr>
+            </table>
+          </body>
+        </html>
       `;
+
+      const { uri } = await printToFileAsync({
+        html: htmlContent,
+        base64: false
+      });
+
+      const fileName = `CoinBuddy_Transactions_${currentDate.toISOString().split('T')[0]}.pdf`;
+      const pdfUri = FileSystem.documentDirectory + fileName;
+
+      await FileSystem.moveAsync({
+        from: uri,
+        to: pdfUri
+      });
+
+      await shareAsync(pdfUri, { UTI: '.pdf', mimeType: 'application/pdf' });
+
+    } catch (error) {
+      console.error('Error generating PDF:', error);
     }
-
-    htmlContent += `
-          </table>
-          <div class="footer"></div>
-        </body>
-      </html>
-    `;
-
-    // Generate the PDF file
-    const { uri } = await printToFileAsync({
-      html: htmlContent,
-      base64: false
-    });
-
-    const fileName = `CoinBuddy_Transactions_${currentDate.toISOString().split('T')[0]}.pdf`;
-    const pdfUri = FileSystem.documentDirectory + fileName;
-
-    await FileSystem.moveAsync({
-      from: uri,
-      to: pdfUri
-    });
-
-    await shareAsync(pdfUri, { UTI: '.pdf', mimeType: 'application/pdf' });
-
-  } catch (error) {
-    console.error('Error generating PDF:', error);
-  }
-};
-
+  };
 
   // Update the achievements progress calculation
   const completedAchievements = achievements.filter(a => a.completed);
   const claimableAchievements = achievements.filter(a => a.completed && a.claimable);
+
+  // Check if filters are active
+  const hasActiveFilters = selectedCategory !== "All" || selectedType !== "All";
 
   return (
     <ScreenWrapper>
@@ -388,7 +520,7 @@ const Home = () => {
           </TouchableOpacity>
         </View>
 
-        {/* XP Progress Bar - Now passing totalXP */}
+        {/* XP Progress Bar */}
         <XPProgressBar 
           savedMoney={savedMoney}
           weeklyGoal={weeklyGoal}
@@ -396,7 +528,7 @@ const Home = () => {
           initialLevel={0}
           showDetails={showXPDetails}
           onPress={() => setShowXPDetails(!showXPDetails)}
-          userXP={totalXP} // Pass the total XP including achievements
+          userXP={totalXP}
         />
 
         <ScrollView
@@ -408,32 +540,55 @@ const Home = () => {
             <HomeCard />
           </View>
 
-          <TransactionList 
-          title={"Recent Transactions"}
-          loading={transactionsLoading}
-          data={recentTransactions}
-          emptyListMessage="No Transactions added yet!"
-          rightElement={
-            <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-              <TouchableOpacity onPress={generateTransactionsPDF}>
-                <Icons.FilePdf
-                  size={verticalScale(22)}
-                  color={colors.neutral900}
-                  weight="bold"
-                />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => router.push("/(modals)/searchModal" as any)}
-              >
-                <Icons.MagnifyingGlass
-                  size={verticalScale(22)}
-                  color={colors.neutral900}
-                  weight="bold"
-                />
+          {/* Active Filters Indicator */}
+          {hasActiveFilters && (
+            <View style={styles.activeFiltersContainer}>
+              <Typo size={12} color={colors.neutral700}>
+                Filters: {selectedType !== "All" && `Type: ${selectedType}`}
+                {selectedType !== "All" && selectedCategory !== "All" && " • "}
+                {selectedCategory !== "All" && `Category: ${selectedCategory}`}
+              </Typo>
+              <TouchableOpacity onPress={resetFilters}>
+                <Typo size={12} color={colors.green} fontWeight="500">
+                  Clear All
+                </Typo>
               </TouchableOpacity>
             </View>
-          }
-        />
+          )}
+
+          <TransactionList 
+            title={"Recent Transactions"}
+            loading={transactionsLoading}
+            data={filteredTransactions}
+            emptyListMessage="No Transactions found with current filters!"
+            rightElement={
+              <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+                <TouchableOpacity onPress={() => setShowCategoryFilter(true)}>
+                  <Icons.Funnel
+                    size={verticalScale(22)}
+                    color={hasActiveFilters ? colors.green : colors.neutral900}
+                    weight={hasActiveFilters ? "fill" : "bold"}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={generateTransactionsPDF}>
+                  <Icons.FilePdf
+                    size={verticalScale(22)}
+                    color={colors.neutral900}
+                    weight="bold"
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => router.push("/(modals)/searchModal" as any)}
+                >
+                  <Icons.MagnifyingGlass
+                    size={verticalScale(22)}
+                    color={colors.neutral900}
+                    weight="bold"
+                  />
+                </TouchableOpacity>
+              </View>
+            }
+          />
         </ScrollView>
         
         <Button
@@ -446,6 +601,9 @@ const Home = () => {
             size={verticalScale(24)}
           />
         </Button>
+        
+        {/* Filter Modal */}
+        {renderFilterModal()}
         
         {/* Achievements Modal */}
         <Modal
@@ -541,6 +699,17 @@ const styles = StyleSheet.create({
     paddingBottom: verticalScale(100),
     gap: spacingY._25,
   },
+  // Active filters indicator
+  activeFiltersContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.neutral100,
+    paddingHorizontal: spacingX._15,
+    paddingVertical: spacingY._7,
+    borderRadius: 8,
+    marginBottom: spacingY._10,
+  },
   // Modal styles
   modalOverlay: {
     flex: 1,
@@ -556,6 +725,13 @@ const styles = StyleSheet.create({
     width: '100%',
     maxHeight: '80%',
   },
+  filterModalContent: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: spacingX._20,
+    width: '100%',
+    maxHeight: '70%',
+  },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -565,6 +741,52 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.neutral200,
   },
+  // Filter styles
+  filterSection: {
+    marginBottom: spacingY._20,
+  },
+  filterTitle: {
+    marginBottom: spacingY._10,
+  },
+  filterOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterOption: {
+    paddingHorizontal: spacingX._15,
+    paddingVertical: spacingY._7,
+    borderRadius: 20,
+    backgroundColor: colors.neutral100,
+    borderWidth: 1,
+    borderColor: colors.neutral200,
+  },
+  selectedFilterOption: {
+    backgroundColor: colors.green,
+    borderColor: colors.green,
+  },
+  filterActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacingX._10,
+    marginTop: spacingY._20,
+  },
+  resetButton: {
+    flex: 1,
+    paddingVertical: spacingY._12,
+    alignItems: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.neutral300,
+  },
+  applyButton: {
+    flex: 1,
+    paddingVertical: spacingY._12,
+    alignItems: 'center',
+    borderRadius: 8,
+    backgroundColor: colors.green,
+  },
+  // Achievement styles
   achievementsProgress: {
     marginBottom: spacingY._15,
   },

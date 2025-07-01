@@ -31,4 +31,6 @@ export const firebase = {
   firestore,
 };
 
+export{app};
+
 

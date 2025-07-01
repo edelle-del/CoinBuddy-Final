@@ -15,9 +15,10 @@ export default function QRModal() {
       if (!user) return;
 
       const tokenRef = await addDoc(collection(firestore, "qrTokens"), {
-        uid: null,
+        uid: user.uid, // Fixed: Use the actual user ID instead of null
         createdAt: serverTimestamp(),
         scannedAt: null,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // Optional: Add 5-minute expiration
       });
 
       const url = `https://coinbuddy.com/qr-login?token=${tokenRef.id}`;
@@ -38,8 +39,11 @@ export default function QRModal() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Scan this QR code to login</Text>
+      <Text style={styles.title}>Scan this QR code to view a profile</Text>
       <QRCode value={tokenUrl} size={250} />
+      <Text style={styles.subtitle}>
+        Scan with another device to authenticate
+      </Text>
     </View>
   );
 }
@@ -66,5 +70,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: colors.primary,
+  },
+  subtitle: {
+    marginTop: 16,
+    fontSize: 14,
+    color: colors.neutral500,
+    textAlign: "center",
   },
 });

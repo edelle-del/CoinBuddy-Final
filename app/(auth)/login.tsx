@@ -140,22 +140,7 @@ const Login = () => {
           </Button>
         </View>
         
-        {/* QR Login Button */}
-        <View style={{ marginVertical: 16, alignItems: "center" }}>
-          <Pressable
-            onPress={() => router.push("/(auth)/qrscanner" as any)}
-            style={{
-              paddingVertical: 12,
-              paddingHorizontal: 24,
-              backgroundColor: colors.white, // or any other theme color
-              borderRadius: 8,
-            }}
-          >
-            <Typo fontWeight={"700"} size={16} color={colors.primary}>
-              Login using QR Code
-            </Typo>
-          </Pressable>
-        </View>
+        
 
 
         {/* footer */}

@@ -67,7 +67,7 @@ const Profile = () => {
       bgColor: colors.neutral600,
     },
     {
-      title: "Scan/Generate QR",
+      title: "Generate QR",
       icon: (
         <Icons.QrCode
           size={verticalScale(26)}
@@ -77,6 +77,18 @@ const Profile = () => {
       ),
         routeName: "/(modals)/qrModal",
       bgColor: "#f59e0b",
+    },
+    {
+      title: "Scan QR",
+      icon: (
+        <Icons.Camera
+          size={verticalScale(26)}
+          color={colors.white}
+          weight="fill"
+        />
+      ),
+        routeName: "/(modals)/qrScannerModal",
+      bgColor: "#8b5cf6",
     },
     {
       title: "Logout",
@@ -114,6 +126,7 @@ const Profile = () => {
   const handlePress = async (item: accountOptionType) => {
     if (item?.title == "Logout") {
       showLogoutAlert();
+      return;
     }
     if (item?.routeName) router.push(item?.routeName);
   };
@@ -181,7 +194,8 @@ const Profile = () => {
                       item.title === "Edit Profile" ? colors.neutral900 : 
                       item.title === "Settings" ? colors.neutral900 :
                       item.title === "Privacy Policy" ? colors.neutral900 :
-                      item.title === "Scan/Generate QR" ? colors.neutral900 :
+                      item.title === "Generate QR" ? colors.neutral900 :
+                      item.title === "Scan QR" ? colors.neutral900 :
                       item.title === "Logout" ? colors.neutral900 :
                       undefined
                     }>

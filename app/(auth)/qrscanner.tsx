@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Alert } from "react-native";
-import { BarCodeScanner } from "expo-barcode-scanner";
+import { Camera, CameraView } from 'expo-camera';
 import { useRouter } from "expo-router";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { signInWithCustomToken, getAuth } from "firebase/auth";
@@ -13,11 +13,12 @@ export default function QRScannerScreen() {
 
   useEffect(() => {
     (async () => {
-      const { status } = await BarCodeScanner.requestPermissionsAsync();
+      const { status } = await Camera.requestCameraPermissionsAsync();
       setHasPermission(status === "granted");
     })();
   }, []);
 
+  
   const handleBarCodeScanned = async ({ data }: { data: string }) => {
     setScanned(true);
 
@@ -54,8 +55,11 @@ export default function QRScannerScreen() {
 
   return (
     <View style={styles.container}>
-      <BarCodeScanner
-        onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
+      <CameraView 
+        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+        barcodeScannerSettings={{
+          barcodeTypes: ['qr'], 
+        }}
         style={StyleSheet.absoluteFillObject}
       />
       <Text style={styles.instruction}>Scan the QR code</Text>

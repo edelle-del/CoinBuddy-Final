@@ -53,6 +53,7 @@ const Home = () => {
   const [selectedType, setSelectedType] = useState<string>("All"); // All, Income, Expense
   const xpPerPeso = 1;
   const [userXP, setUserXP] = useState(0);
+  const [selectedSortBy, setSelectedSortBy] = useState<string>("date-desc"); // Default sort by date (newest first)
 
   // Common expense categories - you can customize these based on your app
   const expenseCategories = [
@@ -67,6 +68,31 @@ const Home = () => {
     "Travel",
     "Other"
   ];
+
+  const sortingOptions = [
+  { value: "date-desc", label: "Date (Newest First)" },
+  { value: "date-asc", label: "Date (Oldest First)" },
+  { value: "amount-desc", label: "Amount (Highest First)" },
+  { value: "amount-asc", label: "Amount (Lowest First)" },
+  { value: "expense-desc", label: "Expenses (Highest First)" },
+  { value: "expense-asc", label: "Expenses (Lowest First)" }
+];
+
+// Helper function to convert any date format to Date object
+const convertToDate = (dateValue: any): Date => {
+  if (dateValue instanceof Date) {
+    return dateValue;
+  }
+  if (dateValue && typeof dateValue.toDate === 'function') {
+    // Firestore Timestamp
+    return dateValue.toDate();
+  }
+  if (typeof dateValue === 'string' || typeof dateValue === 'number') {
+    return new Date(dateValue);
+  }
+  // Fallback to current date if invalid
+  return new Date();
+};
 
   const transactionTypes = ["All", "Income", "Expense"];
 
@@ -160,8 +186,61 @@ const Home = () => {
       );
     }
 
+    // Apply sorting
+    filtered = [...filtered].sort((a, b) => {
+      switch (selectedSortBy) {
+        case "date-desc":
+          const dateA = convertToDate(a.date);
+          const dateB = convertToDate(b.date);
+          return dateB.getTime() - dateA.getTime();
+        
+        case "date-asc":
+          const dateA2 = convertToDate(a.date);
+          const dateB2 = convertToDate(b.date);
+          return dateA2.getTime() - dateB2.getTime();
+        
+        case "amount-desc":
+          return b.amount - a.amount;
+        
+        case "amount-asc":
+          return a.amount - b.amount;
+        
+        case "expense-desc":
+          // Sort expenses from highest to lowest, put income at the end
+          if (a.type === "expense" && b.type === "expense") {
+            return b.amount - a.amount;
+          }
+          if (a.type === "expense" && b.type === "income") {
+            return -1; // expenses come first
+          }
+          if (a.type === "income" && b.type === "expense") {
+            return 1; // expenses come first
+          }
+          return b.amount - a.amount; // both income, sort by amount
+        
+        case "expense-asc":
+          // Sort expenses from lowest to highest, put income at the end
+          if (a.type === "expense" && b.type === "expense") {
+            return a.amount - b.amount;
+          }
+          if (a.type === "expense" && b.type === "income") {
+            return -1; // expenses come first
+          }
+          if (a.type === "income" && b.type === "expense") {
+            return 1; // expenses come first
+          }
+          return a.amount - b.amount; // both income, sort by amount
+        
+        default:
+          // Default to date descending
+          const defaultDateA = convertToDate(a.date);
+          const defaultDateB = convertToDate(b.date);
+          return defaultDateB.getTime() - defaultDateA.getTime();
+      }
+    });
+
     return filtered.slice(0, 30); // Limit to 30 for display
-  }, [recentTransactions, selectedCategory, selectedType]);
+  }, [recentTransactions, selectedCategory, selectedType, selectedSortBy]);
 
   // Calculate saved money based on transactions
   useEffect(() => {
@@ -197,6 +276,7 @@ const Home = () => {
   const resetFilters = () => {
     setSelectedCategory("All");
     setSelectedType("All");
+    setSelectedSortBy("date-desc");
   };
 
   // Get unique categories from transactions for dynamic filtering
@@ -212,103 +292,140 @@ const Home = () => {
 
   // Filter Modal Component
   const renderFilterModal = () => (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={showCategoryFilter}
-      onRequestClose={() => setShowCategoryFilter(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.filterModalContent}>
-          <View style={styles.modalHeader}>
-            <Typo size={18} fontWeight="bold" color={colors.neutral900}>
-              Filter Transactions
+  <Modal
+    animationType="slide"
+    transparent={true}
+    visible={showCategoryFilter}
+    onRequestClose={() => setShowCategoryFilter(false)}
+  >
+    <View style={styles.modalOverlay}>
+      <View style={styles.filterModalContent}>
+        <View style={styles.modalHeader}>
+          <Typo size={18} fontWeight="bold" color={colors.neutral900}>
+            Filter & Sort Transactions
+          </Typo>
+          <TouchableOpacity onPress={() => setShowCategoryFilter(false)}>
+            <Icons.X size={verticalScale(24)} color={colors.neutral900} />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Transaction Type Filter */}
+          <View style={styles.filterSection}>
+            <Typo size={16} fontWeight="600" color={colors.neutral900} style={styles.filterTitle}>
+              Transaction Type
             </Typo>
-            <TouchableOpacity onPress={() => setShowCategoryFilter(false)}>
-              <Icons.X size={verticalScale(24)} color={colors.neutral900} />
-            </TouchableOpacity>
+            <View style={styles.filterOptions}>
+              {transactionTypes.map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  style={[
+                    styles.filterOption,
+                    selectedType === type && styles.selectedFilterOption
+                  ]}
+                  onPress={() => setSelectedType(type)}
+                >
+                  <Typo
+                    size={14}
+                    color={selectedType === type ? colors.white : colors.neutral700}
+                    fontWeight={selectedType === type ? "600" : "400"}
+                  >
+                    {type}
+                  </Typo>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Transaction Type Filter */}
-            <View style={styles.filterSection}>
-              <Typo size={16} fontWeight="600" color={colors.neutral900} style={styles.filterTitle}>
-                Transaction Type
-              </Typo>
-              <View style={styles.filterOptions}>
-                {transactionTypes.map((type) => (
-                  <TouchableOpacity
-                    key={type}
-                    style={[
-                      styles.filterOption,
-                      selectedType === type && styles.selectedFilterOption
-                    ]}
-                    onPress={() => setSelectedType(type)}
+          {/* Category Filter */}
+          <View style={styles.filterSection}>
+            <Typo size={16} fontWeight="600" color={colors.neutral900} style={styles.filterTitle}>
+              Category
+            </Typo>
+            <View style={styles.filterOptions}>
+              {getUniqueCategories().map((category) => (
+                <TouchableOpacity
+                  key={category}
+                  style={[
+                    styles.filterOption,
+                    selectedCategory === category && styles.selectedFilterOption
+                  ]}
+                  onPress={() => setSelectedCategory(category)}
+                >
+                  <Typo
+                    size={14}
+                    color={selectedCategory === category ? colors.white : colors.neutral700}
+                    fontWeight={selectedCategory === category ? "600" : "400"}
                   >
+                    {category || "Uncategorized"}
+                  </Typo>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* NEW SORTING SECTION */}
+          <View style={styles.filterSection}>
+            <Typo size={16} fontWeight="600" color={colors.neutral900} style={styles.filterTitle}>
+              Sort By
+            </Typo>
+            <View style={styles.sortOptions}>
+              {sortingOptions.map((option) => (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.sortOption,
+                    selectedSortBy === option.value && styles.selectedSortOption
+                  ]}
+                  onPress={() => setSelectedSortBy(option.value)}
+                >
+                  <View style={styles.sortOptionContent}>
+                    <View style={[
+                      styles.radioButton,
+                      selectedSortBy === option.value && styles.selectedRadioButton
+                    ]}>
+                      {selectedSortBy === option.value && (
+                        <View style={styles.radioButtonInner} />
+                      )}
+                    </View>
                     <Typo
                       size={14}
-                      color={selectedType === type ? colors.white : colors.neutral700}
-                      fontWeight={selectedType === type ? "600" : "400"}
+                      color={selectedSortBy === option.value ? colors.green : colors.neutral700}
+                      fontWeight={selectedSortBy === option.value ? "600" : "400"}
                     >
-                      {type}
+                      {option.label}
                     </Typo>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
             </View>
+          </View>
 
-            {/* Category Filter */}
-            <View style={styles.filterSection}>
-              <Typo size={16} fontWeight="600" color={colors.neutral900} style={styles.filterTitle}>
-                Category
+          {/* Filter Actions */}
+          <View style={styles.filterActions}>
+            <TouchableOpacity
+              style={styles.resetButton}
+              onPress={resetFilters}
+            >
+              <Typo size={14} color={colors.neutral700} fontWeight="500">
+                Reset All
               </Typo>
-              <View style={styles.filterOptions}>
-                {getUniqueCategories().map((category) => (
-                  <TouchableOpacity
-                    key={category}
-                    style={[
-                      styles.filterOption,
-                      selectedCategory === category && styles.selectedFilterOption
-                    ]}
-                    onPress={() => setSelectedCategory(category)}
-                  >
-                    <Typo
-                      size={14}
-                      color={selectedCategory === category ? colors.white : colors.neutral700}
-                      fontWeight={selectedCategory === category ? "600" : "400"}
-                    >
-                      {category || "Uncategorized"}
-                    </Typo>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Filter Actions */}
-            <View style={styles.filterActions}>
-              <TouchableOpacity
-                style={styles.resetButton}
-                onPress={resetFilters}
-              >
-                <Typo size={14} color={colors.neutral700} fontWeight="500">
-                  Reset Filters
-                </Typo>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={styles.applyButton}
-                onPress={() => setShowCategoryFilter(false)}
-              >
-                <Typo size={14} color={colors.white} fontWeight="600">
-                  Apply Filters
-                </Typo>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </View>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.applyButton}
+              onPress={() => setShowCategoryFilter(false)}
+            >
+              <Typo size={14} color={colors.white} fontWeight="600">
+                Apply Changes
+              </Typo>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </View>
-    </Modal>
-  );
+    </View>
+  </Modal>
+);
 
   // Render achievement item
   const renderAchievementItem = (achievement: Achievement) => {
@@ -476,7 +593,7 @@ const Home = () => {
   const claimableAchievements = achievements.filter(a => a.completed && a.claimable);
 
   // Check if filters are active
-  const hasActiveFilters = selectedCategory !== "All" || selectedType !== "All";
+  const hasActiveFilters = selectedCategory !== "All" || selectedType !== "All" || selectedSortBy !== "date-desc";
 
   return (
     <ScreenWrapper>
@@ -784,6 +901,45 @@ const styles = StyleSheet.create({
     paddingVertical: spacingY._12,
     alignItems: 'center',
     borderRadius: 8,
+    backgroundColor: colors.green,
+  },
+  // NEW SORTING STYLES
+  sortOptions: {
+    gap: 8,
+  },
+  sortOption: {
+    paddingHorizontal: spacingX._15,
+    paddingVertical: spacingY._10,
+    borderRadius: 8,
+    backgroundColor: colors.neutral50,
+    borderWidth: 1,
+    borderColor: colors.neutral200,
+  },
+  selectedSortOption: {
+    backgroundColor: colors.green + '10', // Light green background
+    borderColor: colors.green,
+  },
+  sortOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  radioButton: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: colors.neutral300,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectedRadioButton: {
+    borderColor: colors.green,
+  },
+  radioButtonInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: colors.green,
   },
   // Achievement styles

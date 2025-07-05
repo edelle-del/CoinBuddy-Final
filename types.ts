@@ -144,6 +144,7 @@ export type UserType = {
   name: string | null;
   image?: any;
   emailVerified?: boolean;
+  accountNumber?: string | null; // Add this line
   notificationPreferences?: NotificationPreferences;
 } | null;
 

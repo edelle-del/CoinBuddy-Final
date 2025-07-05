@@ -5,13 +5,12 @@ import {
   onAuthStateChanged,
   User as FirebaseUser,
 } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, query, collection, where, getDocs } from "firebase/firestore";
 import { AuthContextType, NotificationPreferences, UserType } from "@/types";
 import { auth, firestore } from "@/config/firebase";
 import { Router, useRouter, useSegments } from "expo-router";
 import { sendEmailVerification } from "firebase/auth";
 import { updateNotificationPreferences as updateUserNotificationPreferences } from "@/services/userService";
-
 
 const AuthContext = createContext<(AuthContextType & { refreshKey: number }) | null>(null);
 
@@ -42,6 +41,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => unsubscribe();
   }, []);
 
+  const generateUniqueAccountNumber = async () => {
+    let accountNumber;
+    let isUnique = false;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (!isUnique && attempts < maxAttempts) {
+      // Generate 10-digit account number
+      const timestamp = Date.now().toString();
+      const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+      accountNumber = timestamp.slice(-6) + random;
+      
+      // Check if account number already exists
+      const q = query(
+        collection(firestore, 'users'), 
+        where('accountNumber', '==', accountNumber)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        isUnique = true;
+      }
+      attempts++;
+    }
+
+    if (!isUnique) {
+      throw new Error('Unable to generate unique account number');
+    }
+
+    return accountNumber;
+  };
+
   const login = async (email: string, password: string) => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
@@ -61,10 +92,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         email,
         password
       );
+
+      // Generate unique account number
+      const accountNumber = await generateUniqueAccountNumber();
+
       await setDoc(doc(firestore, "users", response?.user?.uid), {
         name,
         email,
         uid: response?.user?.uid,
+        accountNumber, // Add the generated account number
         notificationPreferences: {
           emailAlerts: false,
           appPushNotifications: true,
@@ -83,6 +119,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (msg.includes("(auth/invalid-email)")) msg = "Invalid email";
       if (msg.includes("(auth/email-already-in-use)"))
         msg = "This email is already in use";
+      if (msg.includes("Unable to generate unique account number"))
+        msg = "Registration failed. Please try again.";
 
       return { success: false, msg };
     }
@@ -101,6 +139,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           email: data.email || null,
           name: data.name || null,
           image: data.image || null,
+          accountNumber: data.accountNumber || null, // Add account number to user data
           notificationPreferences: data.notificationPreferences || {
             emailAlerts: false,
             appPushNotifications: true

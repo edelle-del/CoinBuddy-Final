@@ -492,101 +492,193 @@ const convertToDate = (dateValue: any): Date => {
   };
 
   const generateTransactionsPDF = async () => {
-    try {
-      const currentDate = new Date();
-      const formattedDate = currentDate.toLocaleDateString();
-      const formattedTime = currentDate.toLocaleTimeString();
+  try {
+    const currentDate = new Date();
+    const formattedDate = currentDate.toLocaleDateString();
+    const formattedTime = currentDate.toLocaleTimeString();
 
-      let htmlContent = `
-        <html>
-          <head>
-            <style>
-              body { font-family: Arial, sans-serif; padding: 40px; }
-              h1 { color: #22c55e; }
-              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-              th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-              th { background-color: #f2f2f2; }
-              .timestamp { margin-top: 10px; font-size: 12px; color: #666; }
-              .filter-info { margin: 10px 0; font-size: 14px; color: #333; }
-              @page {
-                size: auto;
-                margin: 20mm;
-              }
-            </style>
-          </head>
-          <body>
-            <h1>CoinBuddy Transactions</h1>
-            <p class="timestamp">Generated on ${formattedDate} at ${formattedTime}</p>
-            <div class="filter-info">
-              <strong>Filters Applied:</strong> 
-              Type: ${selectedType} | Category: ${selectedCategory}
-            </div>
-
-            <table>
-              <tr>
-                <th>Date</th>
-                <th>Description</th>
-                <th>Category</th>
-                <th>Type</th>
-                <th>Amount</th>
-              </tr>
-      `;
-
-      // Add filtered transaction rows
-      if (filteredTransactions && filteredTransactions.length > 0) {
-        filteredTransactions.forEach(transaction => {
-          let date = 'Unknown date';
-          if (transaction.date instanceof Timestamp) {
-            date = transaction.date.toDate().toLocaleDateString();
-          } else if (transaction.date instanceof Date) {
-            date = transaction.date.toLocaleDateString();
-          } else if (typeof transaction.date === 'string' || typeof transaction.date === 'number') {
-            date = new Date(transaction.date).toLocaleDateString();
+    let htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          @page {
+            size: A4;
+            margin: 20mm 15mm 25mm 15mm;
+            @bottom-center {
+              content: "Page " counter(page) " of " counter(pages);
+              font-size: 12px;
+              color: #666;
+              font-family: Arial, sans-serif;
+            }
           }
-
-          htmlContent += `
+          
+          body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            font-size: 12px;
+            line-height: 1.4;
+          }
+          
+          .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+          }
+          
+          .header h1 {
+            color: #333;
+            margin: 0 0 10px 0;
+            font-size: 24px;
+          }
+          
+          .header p {
+            margin: 5px 0;
+            color: #666;
+          }
+          
+          .filters {
+            background-color: #f5f5f5;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+          }
+          
+          .filters strong {
+            color: #333;
+          }
+          
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+          }
+          
+          th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+          }
+          
+          th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            color: #333;
+          }
+          
+          tr:nth-child(even) {
+            background-color: #f9f9f9;
+          }
+          
+          .amount {
+            text-align: right;
+            font-weight: bold;
+          }
+          
+          .no-data {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-style: italic;
+          }
+          
+          /* Ensure proper page breaks */
+          table {
+            page-break-inside: auto;
+          }
+          
+          tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+          }
+          
+          thead {
+            display: table-header-group;
+          }
+          
+          .page-break {
+            page-break-before: always;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>CoinBuddy Transactions</h1>
+          <p>Generated on ${formattedDate} at ${formattedTime}</p>
+        </div>
+        
+        <div class="filters">
+          <strong>Filters Applied:</strong>
+          Type: ${selectedType} | Category: ${selectedCategory}
+        </div>
+        
+        <table>
+          <thead>
             <tr>
-              <td>${date}</td>
-              <td>${transaction.description || "No description"}</td>
-              <td>${transaction.category || "Uncategorized"}</td>
-              <td>${transaction.type}</td>
-              <td>₱${transaction.amount.toFixed(2)}</td>
+              <th>Date</th>
+              <th>Description</th>
+              <th>Category</th>
+              <th>Type</th>
+              <th>Amount</th>
             </tr>
-          `;
-        });
-      } else {
+          </thead>
+          <tbody>`;
+
+    // Add filtered transaction rows
+    if (filteredTransactions && filteredTransactions.length > 0) {
+      filteredTransactions.forEach(transaction => {
+        let date = 'Unknown date';
+        if (transaction.date instanceof Timestamp) {
+          date = transaction.date.toDate().toLocaleDateString();
+        } else if (transaction.date instanceof Date) {
+          date = transaction.date.toLocaleDateString();
+        } else if (typeof transaction.date === 'string' || typeof transaction.date === 'number') {
+          date = new Date(transaction.date).toLocaleDateString();
+        }
+
         htmlContent += `
           <tr>
-            <td colspan="5" style="text-align: center;">No transactions to display</td>
-          </tr>
-        `;
-      }
-
+            <td>${date}</td>
+            <td>${transaction.description || "No description"}</td>
+            <td>${transaction.category || "Uncategorized"}</td>
+            <td>${transaction.type}</td>
+            <td class="amount">₱${transaction.amount.toFixed(2)}</td>
+          </tr>`;
+      });
+    } else {
       htmlContent += `
-            </table>
-          </body>
-        </html>
-      `;
-
-      const { uri } = await printToFileAsync({
-        html: htmlContent,
-        base64: false
-      });
-
-      const fileName = `CoinBuddy_Transactions_${currentDate.toISOString().split('T')[0]}.pdf`;
-      const pdfUri = FileSystem.documentDirectory + fileName;
-
-      await FileSystem.moveAsync({
-        from: uri,
-        to: pdfUri
-      });
-
-      await shareAsync(pdfUri, { UTI: '.pdf', mimeType: 'application/pdf' });
-
-    } catch (error) {
-      console.error('Error generating PDF:', error);
+        <tr>
+          <td colspan="5" class="no-data">No transactions to display</td>
+        </tr>`;
     }
-  };
+
+    htmlContent += `
+          </tbody>
+        </table>
+      </body>
+      </html>`;
+
+    const { uri } = await printToFileAsync({
+      html: htmlContent,
+      base64: false
+    });
+
+    const fileName = `CoinBuddy_Transactions_${currentDate.toISOString().split('T')[0]}.pdf`;
+    const pdfUri = FileSystem.documentDirectory + fileName;
+
+    await FileSystem.moveAsync({
+      from: uri,
+      to: pdfUri
+    });
+
+    await shareAsync(pdfUri, { UTI: '.pdf', mimeType: 'application/pdf' });
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+  }
+};
 
   // Update the achievements progress calculation
   const completedAchievements = achievements.filter(a => a.completed);

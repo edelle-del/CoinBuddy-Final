@@ -14,5 +14,5 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
-, "components/XPProgressBar.tsx", "components/XPProgressBar.tsx", "services/leaderboardService.js"  ]
+, "components/XPProgressBar.tsx", "components/XPProgressBar.tsx", "services/leaderboardService.js", "app/(modals)/privacyModal.js"  ]
 }

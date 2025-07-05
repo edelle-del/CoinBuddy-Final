@@ -24,52 +24,64 @@ export default function QRScannerModal() {
     })();
   }, []);
 
+  const maskAccountNumber = (accountNumber: string) => {
+    if (!accountNumber) return "****";
+    
+    // Show only the last 4 digits, mask the rest
+    if (accountNumber.length <= 4) {
+      return "*".repeat(accountNumber.length);
+    }
+    
+    const lastFour = accountNumber.slice(-4);
+    const maskedPart = "*".repeat(accountNumber.length - 4);
+    return maskedPart + lastFour;
+  };
+
   const processQRData = async (data: string) => {
-  try {
-    const url = new URL(data);
-    const token = url.searchParams.get("token");
+    try {
+      const url = new URL(data);
+      const token = url.searchParams.get("token");
 
-    if (!token) throw new Error("Invalid QR code: Token missing");
+      if (!token) throw new Error("Invalid QR code: Token missing");
 
-    const tokenDocRef = doc(firestore, "qrTokens", token);
-    const tokenDoc = await getDoc(tokenDocRef);
+      const tokenDocRef = doc(firestore, "qrTokens", token);
+      const tokenDoc = await getDoc(tokenDocRef);
 
-    if (!tokenDoc.exists()) throw new Error("Invalid or expired token");
+      if (!tokenDoc.exists()) throw new Error("Invalid or expired token");
 
-    const tokenData = tokenDoc.data();
+      const tokenData = tokenDoc.data();
 
-    if (tokenData.expiresAt && tokenData.expiresAt.toDate() < new Date())
-      throw new Error("Token has expired");
+      if (tokenData.expiresAt && tokenData.expiresAt.toDate() < new Date())
+        throw new Error("Token has expired");
 
-    if (tokenData.scannedAt) throw new Error("Token already used");
+      if (tokenData.scannedAt) throw new Error("Token already used");
 
-    if (!tokenData.uid) throw new Error("Token has no associated user");
+      if (!tokenData.uid) throw new Error("Token has no associated user");
 
-    // 👉 FETCH USER PROFILE HERE
-    const userRef = doc(firestore, "users", tokenData.uid);
-    const userSnap = await getDoc(userRef);
+      // 👉 FETCH USER PROFILE HERE
+      const userRef = doc(firestore, "users", tokenData.uid);
+      const userSnap = await getDoc(userRef);
 
-    if (!userSnap.exists()) throw new Error("User profile not found");
+      if (!userSnap.exists()) throw new Error("User profile not found");
 
-    const userProfile = userSnap.data();
+      const userProfile = userSnap.data();
 
-    // ✅ Optional: You can pass profile to another screen or just show it here
-    // For now, let's just show it in an alert
-    Alert.alert("Profile Found", `Name: ${userProfile.name}\nEmail: ${userProfile.email}`);
+      // ✅ Show only name and masked account number
+      const maskedAccountNumber = maskAccountNumber(userProfile.accountNumber);
+      Alert.alert("Profile Found", `Name: ${userProfile.name}\nAccount: ${maskedAccountNumber}`);
 
-    // ✅ Mark token as used
-    await updateDoc(tokenDocRef, {
-      scannedAt: serverTimestamp(),
-    });
+      // ✅ Mark token as used
+      await updateDoc(tokenDocRef, {
+        scannedAt: serverTimestamp(),
+      });
 
-    router.back();
-  } catch (error: any) {
-    console.error("QR scan failed:", error);
-    Alert.alert("Error", error.message || "QR scan failed");
-    setScanned(false);
-  }
-};
-
+      router.back();
+    } catch (error: any) {
+      console.error("QR scan failed:", error);
+      Alert.alert("Error", error.message || "QR scan failed");
+      setScanned(false);
+    }
+  };
 
   const handleBarCodeScanned = async ({ data }: { data: string }) => {
     setScanned(true);

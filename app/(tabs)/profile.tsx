@@ -21,6 +21,8 @@ import { accountOptionType } from "@/types";
 import { signOut } from "firebase/auth";
 import { auth } from "@/config/firebase";
 import { getProfileImage } from "@/services/imageService";
+import { useState } from 'react';
+
 
 const Profile = () => {
   const { user } = useAuth();
@@ -40,8 +42,6 @@ const Profile = () => {
       bgColor: "#6366f1",
       
     },
-    
-
     {
       title: "Settings",
       icon: (
@@ -63,7 +63,7 @@ const Profile = () => {
           weight="fill"
         />
       ),
-       routeName: "/(modals)/categoryModal",
+       routeName: "/(modals)/privacyModal",
       bgColor: colors.neutral600,
     },
     {
@@ -99,7 +99,6 @@ const Profile = () => {
           weight="fill"
         />
       ),
-      // routeName: "/(modals)/categories",
       bgColor: "#e11d48",
     },
   ];

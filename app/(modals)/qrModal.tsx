@@ -18,7 +18,6 @@ export default function QRModal() {
         uid: user.uid, // Fixed: Use the actual user ID instead of null
         createdAt: serverTimestamp(),
         scannedAt: null,
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // Optional: Add 5-minute expiration
       });
 
       const url = `https://coinbuddy.com/qr-login?token=${tokenRef.id}`;

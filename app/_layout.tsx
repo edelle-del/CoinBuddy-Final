@@ -52,6 +52,7 @@ function StackLayout() {
           presentation: "modal",
         }}
       />
+      
       <Stack.Screen
         name="(modals)/categoryModal"
         options={{

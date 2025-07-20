@@ -9,6 +9,7 @@ import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { scale, verticalScale } from "@/utils/styling";
 import * as Icons from "phosphor-react-native";
 import { colors, spacingY } from "@/constants/theme";
+
 function CustomTabs({ state, descriptors, navigation }: BottomTabBarProps) {
   const tabbarIcons: any = {
     index: (isFocused: boolean) => (
@@ -73,7 +74,6 @@ function CustomTabs({ state, descriptors, navigation }: BottomTabBarProps) {
           });
         };
 
-        // console.log("route.name: ", route.name);
         return (
           <TouchableOpacity
             key={route.name}
@@ -97,21 +97,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     width: "100%",
     height: Platform.OS == "ios" ? verticalScale(73) : verticalScale(55),
-    // paddingHorizontal: scale(10),
     backgroundColor: colors.neutral100,
-    justifyContent: "space-around",
+    justifyContent: "space-evenly", // Changed from "space-around"
     alignItems: "center",
-    // shadowColor: colors.white,
-    // shadowOffset: {
-    //   width: 0,
-    //   height: 20,
-    // },
-    // shadowOpacity: 0.5,
-    // shadowRadius: 20,
     borderTopColor: colors.neutral700,
     borderTopWidth: 1,
   },
   tabbarItem: {
+    flex: 1, // Added flex: 1 for equal distribution
     marginBottom: Platform.OS == "ios" ? spacingY._10 : spacingY._5,
     justifyContent: "center",
     alignItems: "center",

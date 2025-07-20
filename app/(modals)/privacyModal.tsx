@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -15,9 +15,25 @@ import { verticalScale } from '@/utils/styling';
 
 const PrivacyModal = () => {
   const router = useRouter();
+  const [isAccepted, setIsAccepted] = useState(false);
 
   const handleClose = () => {
     router.back();
+  };
+
+  const handleAccept = () => {
+    // Handle privacy policy acceptance here
+    setIsAccepted(true);
+    
+    // You might want to:
+    // - Save acceptance status to AsyncStorage or your preferred storage
+    // - Update user preferences in your backend
+    console.log('Privacy policy accepted');
+    
+    // Optional: Navigate back after a delay to show the "Accepted" state
+    // setTimeout(() => {
+    //   router.back();
+    // }, 2000);
   };
 
   return (
@@ -86,16 +102,37 @@ const PrivacyModal = () => {
               Contact Us
             </Typo>
             <Typo size={14} color={colors.neutral600} style={styles.sectionText}>
-              If you have any questions about this Privacy Policy, please contact us at privacy@yourapp.com.
+              If you have any questions about this Privacy Policy, please contact us at coinbuddy@gmail.com.
             </Typo>
           </View>
 
           <View style={styles.section}>
             <Typo size={12} color={colors.neutral500} style={styles.lastUpdated}>
-              Last updated: January 2025
+              Last updated: July 2025
             </Typo>
           </View>
         </ScrollView>
+
+        {/* Accept Button */}
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity 
+            style={[
+              styles.acceptButton,
+              isAccepted && styles.acceptedButton
+            ]} 
+            onPress={handleAccept}
+            disabled={isAccepted}
+          >
+            <View style={styles.buttonContent}>
+              {isAccepted && (
+                <Icons.Check size={20} color={colors.white} weight="bold" style={styles.checkIcon} />
+              )}
+              <Typo size={16} fontWeight="600" color={colors.white}>
+                {isAccepted ? 'Accepted' : 'Accept Privacy Policy'}
+              </Typo>
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
     </ScreenWrapper>
   );
@@ -140,5 +177,30 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacingY._10,
     marginBottom: spacingY._20,
+  },
+  buttonContainer: {
+    paddingHorizontal: spacingX._20,
+    paddingVertical: spacingY._20,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral200,
+    backgroundColor: colors.white,
+  },
+  acceptButton: {
+    backgroundColor: colors.primary, // Adjust to your primary color
+    paddingVertical: spacingY._15,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  acceptedButton: {
+    backgroundColor: colors.neutral500, // Green color for accepted state
+    // You can use a different color like colors.neutral600 for a disabled look
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkIcon: {
+    marginRight: spacingX._7,
   },
 });

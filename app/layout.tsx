@@ -7,7 +7,6 @@ import * as SplashScreen from "expo-splash-screen";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useEffect, useState } from "react";
 import "react-native-reanimated";
-import CustomTabs from "@/components/CustomTabs";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 // SplashScreen.preventAutoHideAsync();
@@ -40,6 +39,13 @@ function StackLayout() {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
+      {/* Add the tabs route group */}
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      
+      {/* Auth screens */}
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      
+      {/* Modal screens */}
       <Stack.Screen
         name="(modals)/transactionModal"
         options={{
@@ -52,7 +58,6 @@ function StackLayout() {
           presentation: "modal",
         }}
       />
-      
       <Stack.Screen
         name="(modals)/categoryModal"
         options={{

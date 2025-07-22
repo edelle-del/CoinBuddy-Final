@@ -131,6 +131,7 @@ const PrivacyModal = () => {
                 {isAccepted ? 'Accepted' : 'Accept Privacy Policy'}
               </Typo>
             </View>
+            
           </TouchableOpacity>
         </View>
       </View>

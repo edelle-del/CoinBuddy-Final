@@ -1,5 +1,5 @@
 import { auth } from "@/config/firebase";
-import { AuthProvider, useAuth } from "@/contexts/authContext";
+import { AuthProvider} from "@/contexts/authContext";
 import { NetworkProvider } from "@/contexts/networkContext";
 import { useFonts } from "expo-font";
 import { Stack, useRouter } from "expo-router";
@@ -13,7 +13,6 @@ import "react-native-reanimated";
 
 function StackLayout() {
   const router = useRouter();
-  const { setUser, updateUserData } = useAuth();
 
   // const [loaded] = useFonts({
   //   SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),

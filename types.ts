@@ -166,6 +166,7 @@ export type AuthContextType = {
     password: string,
     name: string
   ) => Promise<{ success: boolean; msg?: string }>;
+  logout: () => Promise<{ success: boolean; msg?: string }>;
   updateUserData: (userId: string) => Promise<void>;
   resendVerificationEmail: () => Promise<{ success: boolean; msg?: string }>;
   checkEmailVerification: () => Promise<{ 

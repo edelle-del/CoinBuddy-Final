@@ -3,6 +3,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  signOut,
   User as FirebaseUser,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, query, collection, where, getDocs } from "firebase/firestore";
@@ -205,11 +206,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setRefreshKey(prevKey => prevKey + 1);
   };
 
+  const logout = async () => {
+  try {
+    await signOut(auth);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, msg: error.message };
+  }
+};
   const contextValue: AuthContextType = {
     user,
     setUser,
     login,
     register,
+    logout,
     updateUserData,
     resendVerificationEmail,
     checkEmailVerification,
@@ -230,3 +240,5 @@ export const useAuth = (): AuthContextType & { refreshKey: number } => {
   }
   return context as AuthContextType & { refreshKey: number };
 };
+
+

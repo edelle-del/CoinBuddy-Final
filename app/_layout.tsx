@@ -40,9 +40,7 @@ function StackLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       {/* Add the tabs route group */}
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      
-      {/* Auth screens */}
-      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+    
       
       {/* Modal screens */}
       <Stack.Screen
